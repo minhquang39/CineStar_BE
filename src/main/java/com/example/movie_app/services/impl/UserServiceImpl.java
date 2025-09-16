@@ -7,14 +7,15 @@ import com.example.movie_app.dtos.responses.LoginResponse;
 import com.example.movie_app.dtos.responses.UserResponse;
 import com.example.movie_app.exceptions.AppException;
 import com.example.movie_app.exceptions.ErrorCode;
-import com.example.movie_app.exceptions.UserNotFoundException;
+import com.example.movie_app.exceptions.NotFoundException;
 import com.example.movie_app.exceptions.UsernameAlreadyExistException;
 import com.example.movie_app.mappers.UserMapper;
 import com.example.movie_app.models.User;
 import com.example.movie_app.repositories.UserRepository;
 import com.example.movie_app.services.JwtService;
 import com.example.movie_app.services.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import lombok.AllArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -24,19 +25,13 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 @Service
+@AllArgsConstructor
 public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
 
-    @Autowired
-    public UserServiceImpl(UserRepository userRepository, JwtService jwtService, PasswordEncoder passwordEncoder, UserMapper userMapper) {
-        this.userRepository = userRepository;
-        this.jwtService = jwtService;
-        this.passwordEncoder = passwordEncoder;
-        this.userMapper = userMapper;
-    }
 
     @Override
     public UserResponse createUser(UserRequest userRequest) {
@@ -58,17 +53,12 @@ public class UserServiceImpl implements UserService {
 
         User savedUser = userRepository.save(user);
 
-        return new UserResponse().builder()
-                .username(savedUser.getUsername())
-                .email(savedUser.getEmail())
-                .fullname(savedUser.getFullname())
-                .role(savedUser.getRole())
-                .build();
+        return userMapper.toUserResponse(savedUser);
     }
 
     @Override
     public LoginResponse loginUser(LoginRequest loginRequest) {
-        User user = userRepository.findUserByEmail(loginRequest.getEmail()).orElseThrow(()-> new UserNotFoundException("User not found"));
+        User user = userRepository.findUserByEmail(loginRequest.getEmail()).orElseThrow(()-> new NotFoundException("User not found"));
 
         if(!passwordEncoder.matches(loginRequest.getPassword(),user.getPassword())){
             throw new AppException(ErrorCode.INVALID_USER);
@@ -76,10 +66,13 @@ public class UserServiceImpl implements UserService {
 
         String token = jwtService.generateToken(user);
 
+
+
         return new LoginResponse(
                 user.getEmail(),
                 user.getUsername(),
-                token
+                token,
+                user.getRole().replace("ROLE_","")
         );
     }
 
@@ -91,12 +84,7 @@ public class UserServiceImpl implements UserService {
         System.out.println("Context: " + context.getAuthentication().getAuthorities());
         User user = userRepository.findUserByUsername(username)
                 .orElseThrow(() -> new AppException(ErrorCode.INVALID_USER));
-        return new UserResponse().builder()
-                .username(username)
-                .fullname(user.getFullname())
-                .email(user.getEmail())
-                .role(user.getRole())
-                .build();
+        return userMapper.toUserResponse(user);
     }
 
     public UserResponse updateUser(UserUpdateRequest userUpdateRequest) {
@@ -114,12 +102,7 @@ public class UserServiceImpl implements UserService {
         }
 
         user = userRepository.save(user);
-        return new UserResponse().builder()
-                .username(username)
-                .fullname(user.getFullname())
-                .email(user.getEmail())
-                .role(user.getRole())
-                .build();
+        return userMapper.toUserResponse(user);
     }
 
     @Override
@@ -132,17 +115,34 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserResponse deleteUser(Long id) {
-        User user = userRepository.findById(id).orElseThrow(()-> new UserNotFoundException("User not found"));
+        User user = userRepository.findById(id).orElseThrow(()-> new NotFoundException("User not found"));
         if(user.getRole().equals("ROLE_ADMIN")){
             throw new AppException(ErrorCode.CANNOT_DELETE_ADMIN);
         }
         userRepository.delete(user);
-        return new UserResponse().builder()
-                .username(user.getUsername())
-                .fullname(user.getFullname())
-                .email(user.getEmail())
-                .role(user.getRole())
-                .build();
+        return userMapper.toUserResponse(user);
     }
 
+    @Override
+    public LoginResponse refreshToken(String refreshToken) {
+        if(refreshToken==null|| jwtService.isTokenExpired(refreshToken)){
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
+
+        String username = jwtService.extractUsername(refreshToken);
+        User user = userRepository.findUserByUsername(username).orElseThrow(()-> new NotFoundException("User not found"));
+
+        String newAccessToken =  jwtService.generateToken(user);
+        return new LoginResponse(
+                user.getEmail(),
+                user.getUsername(),
+                newAccessToken,
+                user.getRole().replace("ROLE_","")
+        );
+    }
+
+    @Override
+    public Boolean logout() {
+        return true;
+    }
 }

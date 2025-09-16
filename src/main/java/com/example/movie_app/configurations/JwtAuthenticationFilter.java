@@ -1,6 +1,5 @@
 package com.example.movie_app.configurations;
 
-import com.example.movie_app.dtos.requests.LoginRequest;
 import com.example.movie_app.services.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

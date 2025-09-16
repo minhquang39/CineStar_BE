@@ -17,4 +17,8 @@ public interface UserService {
     List<UserResponse> getAllUsers();
 
     UserResponse deleteUser(Long id);
+
+    LoginResponse refreshToken(String refreshToken);
+
+    Boolean logout();
 }

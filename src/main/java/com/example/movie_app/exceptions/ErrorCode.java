@@ -12,7 +12,8 @@ public enum ErrorCode {
     EMAIL_EXIST(HttpStatus.CONFLICT.value(), "Email already registered"),
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED.value(), "Invalid token"),
     CANNOT_DELETE_ADMIN(HttpStatus.FORBIDDEN.value(), "Cannot delete administrator"),
-    INVALID_USER(HttpStatus.BAD_REQUEST.value(),  "Invalid username or password");
+    INVALID_USER(HttpStatus.BAD_REQUEST.value(),  "Invalid username or password"),
+    MOVIE_EXIST(HttpStatus.CONFLICT.value(), "Movie already registered"),;
     private final int statusCode;
     private final String message;
 
